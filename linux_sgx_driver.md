@@ -1,0 +1,4 @@
+为了复现page-fault-attack，我们需要将所有想要观测的页全部置为缺页状态，放置在Func_address数组中。具体步骤如下：
+1.在sgx_ioc_enclave_init函数中，调用自行编写的sgx_delete_pte函数，调用zap_vma_ptes函数删除页表中我们所有想要观测的页表项，并插入encl->malicious_delete_tree。
+2.在页错误处理函数sgx_vma_fault()中，如果上一次页错误恢复的页为我们想要观测的页，则继续删除该页相关的页表项，即插入encl->malicious_delete_tree。如果该次页错误相关的页表项为我们想要观测的页，则恢复其页表项，从encl->malicious_delete_tree中删除，并记录在encl->last_deleted_page_addr中。
+在sgx_encl数据结构中添加的三项数据为struct radix_tree_root malicious_delete_page_tree; bool EINIT_DELETE; unsigned long last_deleted_page_addr;
