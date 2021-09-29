@@ -1,4 +1,6 @@
-## sgx_create_enclave_ex
+## SGX enclave creation
+
+sgx_create_enclave_ex
 
 &emsp;parse and check the elf file(elf header, machine mode, program segment(load segment overlap, dynamic segment), section(symbol table, relocation entries, .ctor sections)), build_regular_sections
 
@@ -116,7 +118,7 @@
 
 
 
-## do_ecall
+## Ecall
 
 &emsp;get_tcs
 
@@ -148,7 +150,7 @@
 
 
 
-## sgx_ocall(in enclave)
+## Ocall
 
 &emsp;do_ocall(in enclave)
 
@@ -181,11 +183,11 @@ sgx_ocfree()
 
 ###### SGX Exception Handling(https://github.com/MWShan/linux-sgx/blob/master/docs/DesignDocs/IntelSGXExceptionHandling-Linux.md)
 
-###### restriction of SGX nested exception
+###### Restriction of SGX nested exception
 
 ###### SGX pthread(https://community.intel.com/t5/Intel-Software-Guard-Extensions/Intel-SGX-Pthreads/m-p/1231185)
 
-###### sgx exception handler register example(https://github.com/deathholes/sgx-enclave-sample/blob/master/Enclave/Enclave.cpp)
+###### SGX exception handler register example(https://github.com/deathholes/sgx-enclave-sample/blob/master/Enclave/Enclave.cpp)
 
 ###### CFI Directives CFI(Call Frame Information)(https://sourceware.org/binutils/docs/as/CFI-directives.html)
 
@@ -240,125 +242,7 @@ pages, and then exits back.
 
 &emsp;The enclave accepts the page type change using ENCLU[EACCEPT]
 
-
-
-###### dlmalloc(http://gee.cs.oswego.edu/dl/html/malloc.html)
-
-
-
-## explicit EPC Allocation sbrk(intptr_t n):
-
-&emsp;if(n < 0)
-
-&emsp;&emsp;set start_addr and invokes trim_EPC_pages(start_address, page_count)
-
-&emsp;&emsp;&emsp;check_dynamic_range(check if the addr belongs to dynamic range specified)
-
-&emsp;&emsp;&emsp;trim_range_ocall
-
-&emsp;&emsp;&emsp;&emsp;trim_range(outside enclave)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;iotcl(m_hdevice, SGX_IOC_ENCLAVE_TRIM)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;__modify_range(struct sgx_encl \*encl, struct sgx_range \*rg, struct 
-sgx_secinfo *secinfo)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;isolate_range(struct sgx_encl \*encl, struct sgx_range \*rg, struct 
-list_head *list) remove page from enclave_load_list and insert it into the trimmed_list
-
-&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;__emodt(struct sgx_secinfo \*secinfo, void \*epc)
-
-&emsp;&emsp;&emsp;sgx_accept_forward(SI_FLAG_TRIM | SI_FLAG_MODIFIED, start, end) ENCLU(EACCEPT)
-
-&emsp;&emsp;&emsp;trim_range_commit_ocall(size_t addr)
-
-&emsp;&emsp;&emsp;&emsp;ocall_trim_accept(void\* pms) (outside enclave)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;ioctl(m_hdevice, SGX_IOC_ENCLAVE_NOTIFY_ACCEPT, &params);
-
-&emsp;else
-
-&emsp;&emsp;if(PAGE_DIR_GROW_DOWN)
-
-&emsp;&emsp;&emsp;sgx_accept_forward(SI_FLAG_TRIM | SI_FLAG_MODIFIED, start, end) ENCLU(EACCEPT)
-
-&emsp;&emsp;else
-
-&emsp;&emsp;&emsp;sgx_accept_backward(SI_FLAGS_RW | SI_FLAG_PENDING, start, end)  ENCLU(EACCEPT)
-
-
-
-## implicit EPC Allocation(stack expansion):
-
-&emsp;in the first phase, it will check whether sp is smaller than stack_commit_addr, then invokes 
-expand_stack_by_pages, which invokes do_accept
-
-
-
-## SGX driver source code:
-
-&emsp;sgx_drv_probe(probe whether SGX is supported in CPU)
-
-&emsp;sgx_dev_init
-
-&emsp;&emsp;sgx_xsave_size_tbl
-
-&emsp;&emsp;sgx_add_epc_bank
-
-&emsp;&emsp;sgx_page_cache_init
-
-
-
-## sgx page fault handling:
-
-&emsp;sgx_vma_open(struct vm_area_struct \*vma)
-
-&emsp;&emsp;sgx_fault_page(struct vm_area_struct \*vma, unsigned long addr, unsigned int flags, struct vm_fault 
-\*vmf)
-
-&emsp;&emsp;&emsp;sgx_do_fault(struct vm_area_struct \*vma, unsigned long addr, unsigned int flags, struct vm_fault 
-\*vmf)
-
-&emsp;&emsp;&emsp;&emsp;sgx_encl_augment(struct vm_area_struct \*vma, unsigned long addr, bool write)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;sgx_alloc_page(unsigned int flags)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;sgx_init_page(struct sgx_encl, struct sgx_encl_page, unsigned long, unsigned int, 
-struct sgx_epc_page, bool)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;__eaug(struct sgx_pageinfo \*pginfo, void \*epc)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;if(write)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;return ERR_PTR(-EFAULT)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;else
-
-&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;return encl_page
-
-if write is specified, SIGBUS is sent to the process, and exception will be invoked
-
-
-
-## linux kernel page fault handling:
-
-do_page_fault(struct pt_regs \*regs, unsigned long error_code)
-
-&emsp;__do_page_fault(struct pt_regs \*regs, unsigned long hw_error_code, unsigned long address)
-
-&emsp;&emsp;do_user_addr_fault(regs, hw_error_code, address)
-
-&emsp;&emsp;&emsp;do_user_addr_fault(struct pt_regs \*regs, unsigned long hw_error_code, unsigned long address)
-
-&emsp;&emsp;&emsp;&emsp;__handle_mm_fault(struct vm_area_struct \*vma, unsigned long address, unsigned int flags)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;handle_pte_fault(struct vm_fault \*vmf)
-
-&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;__do_fault(struct vm_fault \*vmf)
-
-
-
-## int pthread_create(pthread_t \*threadp, const pthread_attr_t \*attr, void \*(\*start_routine)(void \*), void \*arg)
+int pthread_create(pthread_t \*threadp, const pthread_attr_t \*attr, void \*(\*start_routine)(void \*), void \*arg)
 
 &emsp;malloc(sizeof(pthread))
 
@@ -401,13 +285,131 @@ SE_PAGE_SIZE) (in enclave)
 &emsp;int _pthread_wait_timeout(sgx_thread_t waiter_td, uint64_t timeout)(wait until the "start routine" has been 
 executed by new created thread)
 
+###### dlmalloc(http://gee.cs.oswego.edu/dl/html/malloc.html)
+
+
+
+## Explicit EPC Allocation 
+
+sbrk(intptr_t n):
+
+&emsp;if(n < 0)
+
+&emsp;&emsp;set start_addr and invokes trim_EPC_pages(start_address, page_count)
+
+&emsp;&emsp;&emsp;check_dynamic_range(check if the addr belongs to dynamic range specified)
+
+&emsp;&emsp;&emsp;trim_range_ocall
+
+&emsp;&emsp;&emsp;&emsp;trim_range(outside enclave)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;iotcl(m_hdevice, SGX_IOC_ENCLAVE_TRIM)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;__modify_range(struct sgx_encl \*encl, struct sgx_range \*rg, struct 
+sgx_secinfo *secinfo)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;isolate_range(struct sgx_encl \*encl, struct sgx_range \*rg, struct 
+list_head *list) remove page from enclave_load_list and insert it into the trimmed_list
+
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;__emodt(struct sgx_secinfo \*secinfo, void \*epc)
+
+&emsp;&emsp;&emsp;sgx_accept_forward(SI_FLAG_TRIM | SI_FLAG_MODIFIED, start, end) ENCLU(EACCEPT)
+
+&emsp;&emsp;&emsp;trim_range_commit_ocall(size_t addr)
+
+&emsp;&emsp;&emsp;&emsp;ocall_trim_accept(void\* pms) (outside enclave)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;ioctl(m_hdevice, SGX_IOC_ENCLAVE_NOTIFY_ACCEPT, &params);
+
+&emsp;else
+
+&emsp;&emsp;if(PAGE_DIR_GROW_DOWN)
+
+&emsp;&emsp;&emsp;sgx_accept_forward(SI_FLAG_TRIM | SI_FLAG_MODIFIED, start, end) ENCLU(EACCEPT)
+
+&emsp;&emsp;else
+
+&emsp;&emsp;&emsp;sgx_accept_backward(SI_FLAGS_RW | SI_FLAG_PENDING, start, end)  ENCLU(EACCEPT)
+
+
+
+## Implicit EPC Allocation(stack expansion):
+
+&emsp;in the first phase, it will check whether sp is smaller than stack_commit_addr, then invokes 
+expand_stack_by_pages, which invokes do_accept
+
+
+
+## SGX driver source code:
+
+&emsp;sgx_drv_probe(probe whether SGX is supported in CPU)
+
+&emsp;sgx_dev_init
+
+&emsp;&emsp;sgx_xsave_size_tbl
+
+&emsp;&emsp;sgx_add_epc_bank
+
+&emsp;&emsp;sgx_page_cache_init
+
+
+
+## SGX page fault handling:
+
+&emsp;sgx_vma_open(struct vm_area_struct \*vma)
+
+&emsp;&emsp;sgx_fault_page(struct vm_area_struct \*vma, unsigned long addr, unsigned int flags, struct vm_fault 
+\*vmf)
+
+&emsp;&emsp;&emsp;sgx_do_fault(struct vm_area_struct \*vma, unsigned long addr, unsigned int flags, struct vm_fault 
+\*vmf)
+
+&emsp;&emsp;&emsp;&emsp;sgx_encl_augment(struct vm_area_struct \*vma, unsigned long addr, bool write)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;sgx_alloc_page(unsigned int flags)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;sgx_init_page(struct sgx_encl, struct sgx_encl_page, unsigned long, unsigned int, 
+struct sgx_epc_page, bool)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;__eaug(struct sgx_pageinfo \*pginfo, void \*epc)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;if(write)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;return ERR_PTR(-EFAULT)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;else
+
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;return encl_page
+
+if write is specified, SIGBUS is sent to the process, and exception will be invoked
+
+
+
+## Linux kernel page fault handling:
+
+do_page_fault(struct pt_regs \*regs, unsigned long error_code)
+
+&emsp;__do_page_fault(struct pt_regs \*regs, unsigned long hw_error_code, unsigned long address)
+
+&emsp;&emsp;do_user_addr_fault(regs, hw_error_code, address)
+
+&emsp;&emsp;&emsp;do_user_addr_fault(struct pt_regs \*regs, unsigned long hw_error_code, unsigned long address)
+
+&emsp;&emsp;&emsp;&emsp;__handle_mm_fault(struct vm_area_struct \*vma, unsigned long address, unsigned int flags)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;handle_pte_fault(struct vm_fault \*vmf)
+
+&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;__do_fault(struct vm_fault \*vmf)
+
 
 
 ###### Understanding of linux elf file (https://linux-audit.com/elf-binaries-on-linux-understanding-and-analysis/)
 
 
 
-## sgx_sign
+## SGX generate signature
+
+sgx_sign
 
 &emsp;cmdline_parse(check mode: sign, gendata, catsig, dump)
 
@@ -505,7 +507,7 @@ executed by new created thread)
 
 
 
-## aesm_service(directory of log.txt: /var/opt/aesmd/data)
+## Function of aesm_service(directory of log.txt: /var/opt/aesmd/data)
 
 &emsp;aesmLogic->service_start()
 
@@ -575,7 +577,9 @@ sl_init_uswitchless:
 
 
 
-## tworker_process_calls:
+## Switchless_call
+
+tworker_process_calls:
 
 &emsp;sl_run_switchless_tworker
 
@@ -597,7 +601,7 @@ the last page in tls is used to store thread data
 
 
 
-## mutex:
+## Mutex
 
 sgx_thread_mutex_lock:
 
@@ -613,7 +617,9 @@ sgx_thread_mutex_lock:
 
 
 
-## sgx_thread_mutex_unlock:
+## SGX Mutex operation
+
+sgx_thread_mutex_unlock:
 
 &emsp;sgx_thread_mutex_unlock_lazy(get the first thread which should be waken up)
 
