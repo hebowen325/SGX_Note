@@ -7,7 +7,7 @@ Fn is the same as proc in last function, and it gets address of tcs from trust_t
 Enter_enclave is defined as __morestack in enter_enclave.S, and firstly it calls EENTER_PROLOG, saving value of params, non-volatile GPRs and xfeature registers to stack, then it assigns value of fn to rdi, address of ecall parameter to rsi, cleans the upper bits of YMM registers, assigns address of tcs to rbx, assigns address of AEP to rcx, assigns value of rax to SE_ENTER, then calls ENCLU, data flow of EENTER is described in this picture.
 After returning from enclave_entry, firstly it judges whether the purpose of return is OCALL. if not ocall, it directly jumps into .Leret and calls EENTER_PROLOG, restore extended xfeature registers and GPRs, then returns.
 ![data flow of EENTER](images/data_flow_of_EENTER.png)
-<center>data flow of EENTER</center>
+<p align="center">Data flow of EENTER</p>
 
 ###### enclave_entry
 Firstly it will clean unused general registers and judges whether exception needs processing, in which case it will jump into function .Ldo_handler. Then it stores xbp and ret addr in stack, after that it cleans and sets extended feature registers. Finally it sets value of parameters, including index, ms, tcs, cssa, calls enter_enclave.
